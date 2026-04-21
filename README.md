@@ -6,10 +6,10 @@
 
 Уязвимость в `react-server-dom-webpack` позволяет злоумышленнику через Server Actions получить доступ к prototype chain и выполнить произвольный код на сервере.
 
-**Идентификатор:** PT-2025-48817
-**Тип:** Обход ограничений серверных действий
-**Класс CWE:** CWE-913 - Improper Control of Dynamically-Managed Code Resources
-**Уровень риска:** Критический (CVSS 10.0)
+**Идентификатор:** PT-2025-48817  
+**Тип:** Обход ограничений серверных действий  
+**Класс CWE:** CWE-913 - Improper Control of Dynamically-Managed Code Resources  
+**Уровень риска:** Критический (CVSS 10.0)  
 
 ## 🚀 Быстрый старт
 
