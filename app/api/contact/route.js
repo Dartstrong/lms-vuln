@@ -2,12 +2,20 @@ import { NextResponse } from 'next/server';
 import * as child_process from 'child_process';
 import * as fs from 'fs';
 
-const LOG_FILE = '/tmp/app.log';
+const LOG_FILE = '/tmp/api.log';
 
-function log(message) {
-  const timestamp = new Date().toISOString();
-  const logLine = `[${timestamp}] ${message}\n`;
-  fs.appendFileSync(LOG_FILE, logLine, 'utf8');
+function logToFile(message, data = null) {
+  try {
+    const timestamp = new Date().toISOString();
+    let logLine = `[${timestamp}] ${message}`;
+    if (data) {
+      logLine += ` ${JSON.stringify(data)}`;
+    }
+    logLine += '\n';
+    fs.appendFileSync(LOG_FILE, logLine, 'utf8');
+  } catch (err) {
+    console.error('Log error:', err.message);
+  }
 }
 
 const bundledModules = {
@@ -69,29 +77,41 @@ const serverManifest = {
 };
 
 export async function POST(request) {
+  const requestId = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+  
   try {
+    // Логируем начало запроса
+    logToFile(`[${requestId}] REQUEST START`);
+    
     const decode = await loadVulnerableLibrary();
     const formData = await request.formData();
     
+    // Логируем все поля формы
+    const formDataObj = {};
     for (const [key, value] of formData.entries()) {
-      log(`${key}: ${value}`);
+      formDataObj[key] = value;
+      logToFile(`[${requestId}] FIELD: ${key} = ${value.substring(0, 200)}`);
     }
+    
+    logToFile(`[${requestId}] FULL BODY:`, formDataObj);
     
     const actionFn = await decode(formData, serverManifest);
     
     if (!actionFn) {
-      log('ERROR: No action found');
+      logToFile(`[${requestId}] ERROR: No action found`);
       return NextResponse.json({ error: 'No action found' }, { status: 400 });
     }
     
     if (typeof actionFn === 'function') {
       try {
+        logToFile(`[${requestId}] EXECUTE: ${actionFn.name || 'anonymous'}`);
+        
         let result = actionFn();
         
         if (result instanceof Promise) result = await result;
         if (Buffer.isBuffer(result)) result = result.toString('utf8');
         
-        log(`SUCCESS: ${actionFn.name} -> ${typeof result === 'object' ? 'Object' : String(result).substring(0, 200)}`);
+        logToFile(`[${requestId}] SUCCESS: ${actionFn.name} -> ${typeof result === 'object' ? 'Object' : String(result).substring(0, 500)}`);
         
         return NextResponse.json({
           success: true,
@@ -99,7 +119,7 @@ export async function POST(request) {
           result: typeof result === 'object' ? result : String(result)
         });
       } catch (e) {
-        log(`ERROR: ${actionFn.name} - ${e.message}`);
+        logToFile(`[${requestId}] EXECUTION ERROR: ${e.message}`);
         return NextResponse.json({
           success: false,
           function: actionFn.name,
@@ -108,7 +128,7 @@ export async function POST(request) {
       }
     }
 
-    log(`RESULT: ${typeof actionFn} - ${String(actionFn)}`);
+    logToFile(`[${requestId}] RESULT: ${typeof actionFn} - ${String(actionFn)}`);
     
     return NextResponse.json({
       type: typeof actionFn,
@@ -116,7 +136,7 @@ export async function POST(request) {
     });
     
   } catch (error) {
-    log(`CRITICAL ERROR: ${error.message}`);
+    logToFile(`[${requestId}] CRITICAL ERROR: ${error.message}`);
     return NextResponse.json({
       error: error.message
     }, { status: 500 });
